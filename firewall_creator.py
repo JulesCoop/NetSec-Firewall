@@ -4,7 +4,6 @@ import argparse
 from datetime import datetime
 import os
 
-data_answers = {}
 
 
 def get_answer_yes_no(question, last_value):
@@ -24,6 +23,7 @@ def get_answer_yes_no(question, last_value):
         print("Previous answer: " + str(last_value))
     resp = input("")
     
+    # infinite loop until the response matches the desired format
     while (resp.lower() not in ["yes", "y", "no", "n", "cancel", "c"]):
         print("The answer must be of form, \"yes\", \"y\", \"no\", \"n\", \"cancel\", \"c\"")
         print(question)
@@ -39,6 +39,49 @@ def get_answer_yes_no(question, last_value):
     else:
         arg = None
     return arg
+
+
+def get_answer_multiple_number(question, last_value, allowed_numbers):
+    """Gets the answers to a input field and parses it to a list of number variable
+
+    Args:
+        question (String): a question
+        last_value (list): previous answer/None if not set
+
+    Returns:
+        list: A list of unique numbers, None if it was cancel/c
+    """
+    print(question)
+    if (last_value != None and last_value !=[]):
+        print("Previous answer: " + str(last_value))
+    resp = input("")
+    
+    # infinite loop
+    while True:
+        if (resp.lower() == "cancel" or resp.lower() == "c"):
+            return None
+
+        # if the response doesn't digital characters or space
+        if all(part.isdigit() for part in resp.split()):
+            resp_list = list(map(int, resp.split()))
+            # if the response doesn't have repeated numbers/digits
+            if len(resp_list) == len(set(resp_list)):
+                # if the response has valid numbers/digits
+                if all(allowed_number in allowed_numbers for allowed_number in resp_list):
+                    #exit the loop
+                    break
+        else:
+            print("no match")
+
+        print("The answer must be of form, \"cancel\",\"c\" or \"x y z...\", where x y and z are valid numbers and no numbers are repeated")
+        print(question)
+        if (last_value != None and last_value !=[]):
+            print("Previous answer: " + str(last_value))
+        resp = input("")
+    
+    # converts a list of string to a list of integer
+    return list(map(int, resp.split()))
+
 
 # ------------------------------------------------------------------------
 # file input - output
@@ -93,11 +136,6 @@ def read_js_to_file(filename):
 # ------------------------------------------------------------------------
 
 
-#TODO
-def enable_firewall(fileName):
-    pass
-
-
 
 
 def cancel(tmp_file):
@@ -107,8 +145,29 @@ def cancel(tmp_file):
     Args:
         tmp_file (str): file_name to remove from device
     """
-    os.remove(tmp_file)
+    if os.path.exists(tmp_file):
+        os.remove(tmp_file)
     exit(0)
+
+
+
+
+question_dict = {
+    "experienced": ["Are you comfortable with network terminology ?"],
+    
+    # no experience questions
+    "public_no_exp": [1, "Are you on a public network?", "TODO RULE"],
+    "webserver_no_exp": [2, "Will you host a webserver?", "TODO RULE"],
+    "ssh_no_exp": [3, "Do you need to connect to this device from another device?", "TODO RULE"],
+
+    # experience questions
+    "server_exp": ["Will the device host services ?\n If yes answer each number seperated by a space character\nEnter fo nothing\n1. SSH\n2. FTP\n3. HTTP\n4. HTTPs", "ssh_exp", "ftp_exp", "http_exp", "https_exp"],
+    "ssh_exp": [1, "SSH", "TODO RULE"],
+    "ftp_exp":[2, "FTP", "TODO RULE"],
+    "http_exp": [3, "HTTP", "TODO RULE"],
+    "https_exp": [4, "HTTPS", "TODO RULE"],
+}
+
 
 
 
@@ -119,10 +178,11 @@ def main(args):
     # creating the default output files based on the timestamp
     current_time = datetime.now()
     # put the time in string format
-    timestamp = current_time.strftime("%d-%m-%Y_%S-%M-%H")
+    timestamp = current_time.strftime("%d-%m-%Y_%H-%M-%S")
 
     output_file = "rules_" + timestamp + ".txt"
     js_output_file = "questions_rules" + timestamp + ".js"
+    tmp_file = "tmp_" + timestamp + ".txt"
 
     # if the output file is already specified
     if args.output:
@@ -138,76 +198,70 @@ def main(args):
             overwrite = get_answer_yes_no("A file named " + args.output + " already exists, do you want to overwrite it?", None)
             if overwrite == False or overwrite == None:
                 exit(0)
-        
-
+    
+    # new answers for the questions
+    answers_dict = {}
+    prev_answer_dict = {}
     # load existing rules
     if args.action == "load":
-        question_dic = read_js_to_file(args.file)
-    # new answers for the questions
-    new_question_dic = {}
+        prev_answer_dict = read_js_to_file(args.file)
+
 
 
     # create new rules / modify the previous
-    #---------------------- exemples -------------------
-    # server / client
-    question = "are you a server?"
-    key = "server"
-    prev_answer = question_dic[key] if key in question_dic.keys() else None
+    experience_response = get_answer_yes_no(question_dict["experienced"][0], prev_answer_dict.get("experienced"))
+    answers_dict["experienced"] = experience_response
 
-    # ask question and get the answer
-    response = get_answer_yes_no(question, prev_answer)
-    if (response == None):
-        exit(0)
-    new_question_dic[key] = response
-
-
-    # server questions
-    if response == True:
-        write_to_file(tmp_file, "server rules")
-
-
-        question = "http server?"
-        key = "http_server"
-        prev_answer = question_dic[key] if key in question_dic.keys() else None
+    # experience questions
+    if experience_response == True:
         
-        response = get_answer_yes_no(question, prev_answer)
-        if (response == None):
+        # loads the previous answers as a list of strings
+        prev_answer_multiple_choice = []
+        # check through all the options of the questions
+        for k in ["ssh_exp", "ftp_exp", "http_exp", "https_exp"]:
+            prev = prev_answer_dict.get(k)
+            if prev == True:
+                # appends the name of the "rule" to the list (SSH, FTP, HTTP or HTTPS)
+                prev_answer_multiple_choice.append(question_dict[k][1])
+        
+        resp_answer_multiple_choice = get_answer_multiple_number(question_dict["server_exp"][0], prev_answer_multiple_choice, [0, 1, 2, 3, 4])
+        if (resp_answer_multiple_choice == None):
             cancel(tmp_file)
-        new_question_dic[key] = response
-        
-        if response == True:
-            write_to_file(tmp_file, "http server rules")
-        else:
-            write_to_file(tmp_file, "block http server rules")
+
+        for num in resp_answer_multiple_choice:
+            if num != 0:
+                answers_dict[question_dict["server_exp"][num]] = True
 
 
-    else:
-        write_to_file(tmp_file, "client rules")
 
-        question = "ssh access?"
-        key = "ssh_access"
-        prev_answer = question_dic[key] if key in question_dic.keys() else None
-        
-        response = get_answer_yes_no(question, prev_answer)
-        if (response == None):
+    # inexperience questions
+    else :
+        resp = get_answer_yes_no(question_dict["public_no_exp"][1], prev_answer_dict.get("public_no_exp"))
+        answers_dict["public_no_exp"] = resp
+        if (resp == None):
             cancel(tmp_file)
-        new_question_dic[key] = response
-        
-        if response == True:
-            write_to_file(tmp_file, "ssh server rules")
-        else:
-            write_to_file(tmp_file, "block ssh server rules")     
 
+        resp = get_answer_yes_no(question_dict["webserver_no_exp"][1], prev_answer_dict.get("webserver_no_exp"))
+        answers_dict["webserver_no_exp"] = resp
+        if (resp == None):
+            cancel(tmp_file)
+
+        resp = get_answer_yes_no(question_dict["ssh_no_exp"][1], prev_answer_dict.get("ssh_no_exp"))
+        answers_dict["ssh_no_exp"] = resp
+        if (resp == None):
+            cancel(tmp_file)
+    
 
 
     # rename the tmp_file to the real output one
-    os.rename(tmp_file, output_file)
+    if os.path.exists(tmp_file):
+        os.rename(tmp_file, output_file)
 
     # empty the file of it's previous content
     with open(js_output_file, 'w') as file:
         pass
 
-    write_js_to_file(js_output_file, new_question_dic)
+    write_js_to_file(js_output_file, answers_dict)
         
 
 
