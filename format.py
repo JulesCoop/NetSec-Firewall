@@ -6,13 +6,26 @@ R_INDEX = 2
 
 #some questions do not have rules for them
 def validId(id):
+    """To check if a question with a specific id has a 
+    corresponding rule or not.
+
+    Args:
+        id (str): id of the question
+    """
     if id not in ["experienced", "server_exp"]:
         return True
     return False
 
-#function to make the properly formatted string
-#for the file, with all the rules needed
+
 def to_string_format(questions_dict, answers_dict):
+    """To convert the answers into the string 
+    that will be written to the file.
+
+    Args:
+        questions_dict (dict): dictionary with the questions 
+                ids, the questions and their corresponding rules
+        answers_dict (dict) : dictionary with booleans for each question id
+    """
     #1. always the same initial part
     final_string = "#iptables firewall implementation\n*filter\n\
 :INPUT DROP [0:0]\n:FORWARD ACCEPT [0:0]\n:OUTPUT ACCEPT [0:0]"

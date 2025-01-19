@@ -161,7 +161,7 @@ question_dict = {
     "ssh_no_exp": [3, "Do you need to connect to this device from another device?", "TODO RULE"],
 
     # experience questions
-    "server_exp": ["Will the device host services ?\n If yes answer each number seperated by a space character\nEnter fo nothing\n1. SSH\n2. FTP\n3. HTTP\n4. HTTPs", "ssh_exp", "ftp_exp", "http_exp", "https_exp"],
+    "server_exp": ["Will the device host services ?\n If yes answer each number seperated by a space character\nEnter for nothing\n1. SSH\n2. FTP\n3. HTTP\n4. HTTPs", "ssh_exp", "ftp_exp", "http_exp", "https_exp"],
     "ssh_exp": [1, "SSH", "TODO RULE"],
     "ftp_exp":[2, "FTP", "TODO RULE"],
     "http_exp": [3, "HTTP", "TODO RULE"],
