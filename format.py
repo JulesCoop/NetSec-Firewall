@@ -28,12 +28,12 @@ def to_string_format(questions_dict, answers_dict):
     """
     #1. always the same initial part
     final_string = "#iptables firewall implementation\n*filter\n\
-:INPUT DROP [0:0]\n:FORWARD ACCEPT [0:0]\n:OUTPUT ACCEPT [0:0]"
+:INPUT DROP [0:0]\n:FORWARD ACCEPT [0:0]\n:OUTPUT ACCEPT [0:0]\n"
 
     #2. add all the rules in order
 
     #rule that always goes first:
-    final_string += "-A INPUT -i lo -j ACCEPT"
+    final_string += "-A INPUT -i lo -j ACCEPT\n"
 
     #go through the answers and SORT THEM in a priority queue
     pq = [] #new list to heapify
@@ -45,12 +45,13 @@ def to_string_format(questions_dict, answers_dict):
     #go through the sorted list to add the rules in the right order
     for i in range(len(pq)):
         final_string += heapq.heappop(pq)[1]
+        final_string += "\n"    
     
 
     #rule that always goes last:
-    final_string += "-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT "
+    final_string += "-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT\n"
     #3. commit
-    final_string += "COMMIT"
+    final_string += "\nCOMMIT"
 
     return final_string
 
