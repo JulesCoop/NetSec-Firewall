@@ -32,6 +32,9 @@ def to_string_format(questions_dict, answers_dict):
 
     #2. add all the rules in order
 
+    #rule that always goes first:
+    final_string += "-A INPUT -i lo -j ACCEPT"
+
     #go through the answers and SORT THEM in a priority queue
     pq = [] #new list to heapify
     for id in answers_dict.keys():
@@ -41,9 +44,11 @@ def to_string_format(questions_dict, answers_dict):
     
     #go through the sorted list to add the rules in the right order
     for i in range(len(pq)):
-        final_string += heapq.heappop(pq)[R_INDEX]
+        final_string += heapq.heappop(pq)[1]
     
 
+    #rule that always goes last:
+    final_string += "-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT "
     #3. commit
     final_string += "COMMIT"
 
