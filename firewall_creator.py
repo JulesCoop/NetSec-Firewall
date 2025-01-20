@@ -236,7 +236,7 @@ question_dict = {
     
     # no experience questions
     "public_no_exp": [1, "Are you on a public network?", "-A OUTPUT -p tcp -m tcp --dport 80 -j DROP "],
-    "server_no_exp": [2, "Will you host a server?", "-A INPUT -p icmp -m icmp --icmp-type 8 -m limit --limit 1/sec --limit-burst 10 -j ACCEPT\n-A INPUT -p icmp -m icmp --icmp-type 8 -j DROP\n-A INPUT -p icmp -j ACCEPT"],
+    "server_no_exp": [2, "Should this device be accessible online by other people?", "-A INPUT -p icmp -m icmp --icmp-type 8 -m limit --limit 1/sec --limit-burst 10 -j ACCEPT\n-A INPUT -p icmp -m icmp --icmp-type 8 -j DROP\n-A INPUT -p icmp -j ACCEPT"],
     "webserver_no_exp": [3, "Will you host a webserver?", "-A INPUT -p tcp -m tcp --dport 80 -j ACCEPT\n-A INPUT -p tcp -m tcp --dport 443 -j ACCEPT"],
     "ssh_no_exp": [4, "Do you need to connect to this device from another device?", "-A INPUT -p tcp -m tcp --dport 22 -m conntrack --ctstate NEW -j ACCEPT "],
 
