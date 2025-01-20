@@ -4,6 +4,7 @@ import argparse
 from datetime import datetime
 import os
 
+from format import to_string_format
 
 
 def get_answer_yes_no(question, last_value):
@@ -89,13 +90,12 @@ def get_answer_multiple_number(question, last_value, allowed_numbers):
 def write_to_file(fileName, data):
     """Write to a file that exists or not
         If the file doesn't exists it's created
-        If it does then the data is appended to it
+        If it does then the data is written to it
     Args:
         fileName (String): name of the file
         data (String): data to write to the file
     """
-    # create file if doesn't exist and appends to it otherwise
-    f = open(fileName, "a+")
+    f = open(fileName, "w")
     f.write(data)
     f.write("\n")
     f.close()
@@ -109,7 +109,7 @@ def write_js_to_file(fileName, data):
         fileName (String): name of the file
         data (dict): data to write to the file, this data is a json format
     """
-    with io.open(fileName, 'a+', encoding='utf8') as outfile:
+    with io.open(fileName, 'w', encoding='utf8') as outfile:
         json.dump(data, outfile, indent=4)
     
 
@@ -138,34 +138,24 @@ def read_js_to_file(filename):
 
 
 
-def cancel(tmp_file):
-    """Operation called after a call to get_answer_yes_or_no
-        It will delete the file and exit the program
-
-    Args:
-        tmp_file (str): file_name to remove from device
-    """
-    if os.path.exists(tmp_file):
-        os.remove(tmp_file)
-    exit(0)
-
-
 
 
 question_dict = {
     "experienced": ["Are you comfortable with network terminology ?"],
     
     # no experience questions
-    "public_no_exp": [1, "Are you on a public network?", "TODO RULE"],
-    "webserver_no_exp": [2, "Will you host a webserver?", "TODO RULE"],
-    "ssh_no_exp": [3, "Do you need to connect to this device from another device?", "TODO RULE"],
+    "public_no_exp": [1, "Are you on a public network?", "-A OUTPUT -p tcp -m tcp --dport 80 -j DROP "],
+    "server_no_exp": [2, "Will you host a server?", "-A INPUT -p icmp -m icmp --icmp-type 8 -m limit --limit 1/sec --limit-burst 10 -j ACCEPT\n-A INPUT -p icmp -m icmp --icmp-type 8 -j DROP\n-A INPUT -p icmp -j ACCEPT"],
+    "webserver_no_exp": [3, "Will you host a webserver?", "-A INPUT -p tcp -m tcp --dport 80 -j ACCEPT\n-A INPUT -p tcp -m tcp --dport 443 -j ACCEPT"],
+    "ssh_no_exp": [4, "Do you need to connect to this device from another device?", "-A INPUT -p tcp -m tcp --dport 22 -m conntrack --ctstate NEW -j ACCEPT "],
 
     # experience questions
-    "server_exp": ["Will the device host services ?\n If yes answer each number seperated by a space character\nEnter for nothing\n1. SSH\n2. FTP\n3. HTTP\n4. HTTPs", "ssh_exp", "ftp_exp", "http_exp", "https_exp"],
-    "ssh_exp": [1, "SSH", "TODO RULE"],
+    "services_exp": [0, "Will the device host services?", "-A INPUT -p icmp -m icmp --icmp-type 8 -m limit --limit 1/sec --limit-burst 10 -j ACCEPT\n-A INPUT -p icmp -m icmp --icmp-type 8 -j DROP\n-A INPUT -p icmp -j ACCEPT"],
+    "server_exp": ["Which services will it host ?\n Answer each number seperated by a space character if multiple services are hosted\nEnter for nothing\n1. SSH\n2. FTP\n3. HTTP\n4. HTTPs", "ssh_exp", "ftp_exp", "http_exp", "https_exp"],
+    "ssh_exp": [1, "SSH", "-A INPUT -p tcp -m tcp --dport 22 -m conntrack --ctstate NEW -j ACCEPT "],
     "ftp_exp":[2, "FTP", "TODO RULE"],
-    "http_exp": [3, "HTTP", "TODO RULE"],
-    "https_exp": [4, "HTTPS", "TODO RULE"],
+    "http_exp": [3, "HTTP", "-A INPUT -p tcp -m tcp --dport 80 -j ACCEPT"],
+    "https_exp": [4, "HTTPS", "-A INPUT -p tcp -m tcp --dport 443 -j ACCEPT"],
 }
 
 
@@ -182,7 +172,6 @@ def main(args):
 
     output_file = "rules_" + timestamp + ".txt"
     js_output_file = "questions_rules" + timestamp + ".js"
-    tmp_file = "tmp_" + timestamp + ".txt"
 
     # if the output file is already specified
     if args.output:
@@ -190,8 +179,6 @@ def main(args):
         # get the output name and remove the extension to add the new js one
         js_output_file = "questions_" + args.output.split(".", 1)[0] + ".js"
 
-        # tmp_file
-        tmp_file = "tmp_" + args.output
 
         # file already exists check if want to overwrite
         if os.path.isfile(args.output):
@@ -215,22 +202,30 @@ def main(args):
     # experience questions
     if experience_response == True:
         
-        # loads the previous answers as a list of strings
-        prev_answer_multiple_choice = []
-        # check through all the options of the questions
-        for k in ["ssh_exp", "ftp_exp", "http_exp", "https_exp"]:
-            prev = prev_answer_dict.get(k)
-            if prev == True:
-                # appends the name of the "rule" to the list (SSH, FTP, HTTP or HTTPS)
-                prev_answer_multiple_choice.append(question_dict[k][1])
+        resp = get_answer_yes_no(question_dict["services_exp"][1], prev_answer_dict.get("services_exp"))
+        answers_dict["services_exp"] = resp
+        if (resp == None):
+            exit(0)
         
-        resp_answer_multiple_choice = get_answer_multiple_number(question_dict["server_exp"][0], prev_answer_multiple_choice, [0, 1, 2, 3, 4])
-        if (resp_answer_multiple_choice == None):
-            cancel(tmp_file)
+        # The device will act as a server
+        if (resp == True):
+            # loads the previous answers as a list of strings
+            prev_answer_multiple_choice = []
+            # check through all the options of the questions
+            for k in ["ssh_exp", "ftp_exp", "http_exp", "https_exp"]:
+                prev = prev_answer_dict.get(k)
+                if prev == True:
+                    # appends the name of the "rule" to the list (SSH, FTP, HTTP or HTTPS)
+                    prev_answer_multiple_choice.append(question_dict[k][1])
+            
+            resp_answer_multiple_choice = get_answer_multiple_number(question_dict["server_exp"][0], prev_answer_multiple_choice, [0, 1, 2, 3, 4])
+            if (resp_answer_multiple_choice == None):
+                exit(0)
 
-        for num in resp_answer_multiple_choice:
-            if num != 0:
-                answers_dict[question_dict["server_exp"][num]] = True
+            for num in resp_answer_multiple_choice:
+                if num != 0:
+                    answers_dict[question_dict["server_exp"][num]] = True
+        
 
 
 
@@ -239,31 +234,29 @@ def main(args):
         resp = get_answer_yes_no(question_dict["public_no_exp"][1], prev_answer_dict.get("public_no_exp"))
         answers_dict["public_no_exp"] = resp
         if (resp == None):
-            cancel(tmp_file)
+            exit(0)
+
+
+        resp = get_answer_yes_no(question_dict["server_no_exp"][1], prev_answer_dict.get("server_no_exp"))
+        answers_dict["server_no_exp"] = resp
+        if (resp == None):
+            exit(0)
 
         resp = get_answer_yes_no(question_dict["webserver_no_exp"][1], prev_answer_dict.get("webserver_no_exp"))
         answers_dict["webserver_no_exp"] = resp
         if (resp == None):
-            cancel(tmp_file)
+            exit(0)
+
 
         resp = get_answer_yes_no(question_dict["ssh_no_exp"][1], prev_answer_dict.get("ssh_no_exp"))
         answers_dict["ssh_no_exp"] = resp
         if (resp == None):
-            cancel(tmp_file)
-    
+            exit(0)
 
-
-    # rename the tmp_file to the real output one
-    if os.path.exists(tmp_file):
-        os.rename(tmp_file, output_file)
-
-    # empty the file of it's previous content
-    with open(js_output_file, 'w') as file:
-        pass
-
+    # writes the answers to questions to a js file
     write_js_to_file(js_output_file, answers_dict)
-        
-
+    
+    write_to_file(output_file ,to_string_format(question_dict, answers_dict))
 
 
 if __name__ == "__main__":
