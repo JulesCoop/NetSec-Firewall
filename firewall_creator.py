@@ -6,7 +6,6 @@ import os
 import ipaddress
 import heapq
 
-from format import to_string_format
 
 
 def get_answer_yes_no(question, last_value):
