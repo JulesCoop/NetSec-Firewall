@@ -3,6 +3,7 @@ import io
 import argparse
 from datetime import datetime
 import os
+import ipaddress
 
 from format import to_string_format
 
@@ -84,6 +85,39 @@ def get_answer_multiple_number(question, last_value, allowed_numbers):
     return list(map(int, resp.split()))
 
 
+def get_ip_list(question, last_value):
+    """Gets the answers to a input field and parses it to a list of ips
+
+    Args:
+        question (String): a question
+        last_value (list): previous answer/None if not set
+
+    Returns:
+        list: A list of ips, None if it was cancel/c
+    """
+
+    print(question)
+    if (last_value != None and last_value !=[]):
+        print("Previous answer: " + str(last_value))
+    resp = input("")
+
+    iplist = []
+    while(resp != ""):
+
+        try:
+            # Try to create an IP address object
+            ipaddress.ip_address(resp)
+            iplist.append(resp)
+        except:
+            if (resp.lower() == "cancel" or resp.lower() == "c"):
+                return None
+            
+            print("The Ip address isn't valid or isn't in the right format")
+
+        resp = input("")
+
+    return iplist
+
 # ------------------------------------------------------------------------
 # file input - output
 
@@ -153,9 +187,11 @@ question_dict = {
     "services_exp": [0, "Will the device host services?", "-A INPUT -p icmp -m icmp --icmp-type 8 -m limit --limit 1/sec --limit-burst 10 -j ACCEPT\n-A INPUT -p icmp -m icmp --icmp-type 8 -j DROP\n-A INPUT -p icmp -j ACCEPT"],
     "server_exp": ["Which services will it host ?\n Answer each number seperated by a space character if multiple services are hosted\nEnter for nothing\n1. SSH\n2. FTP\n3. HTTP\n4. HTTPs", "ssh_exp", "ftp_exp", "http_exp", "https_exp"],
     "ssh_exp": [1, "SSH", "-A INPUT -p tcp -m tcp --dport 22 -m conntrack --ctstate NEW -j ACCEPT "],
-    "ftp_exp":[2, "FTP", "TODO RULE"],
+    "ftp_exp":[2, "FTP", ""],
     "http_exp": [3, "HTTP", "-A INPUT -p tcp -m tcp --dport 80 -j ACCEPT"],
     "https_exp": [4, "HTTPS", "-A INPUT -p tcp -m tcp --dport 443 -j ACCEPT"],
+    "ftp_ips": [5, "Which Ip's is your FTP server going to communicate with?", ""],
+    "blocked_ips": [6, "Which Ip's do you which to block all incoming traffic from?\nIf none enter nothing", ""]
 }
 
 
@@ -225,9 +261,32 @@ def main(args):
             for num in resp_answer_multiple_choice:
                 if num != 0:
                     answers_dict[question_dict["server_exp"][num]] = True
+
+            # ask which ip the server is going to communicate with
+            if answers_dict.get("ftp_exp") != None:
+                ip_list = get_ip_list(question_dict["ftp_ips"][1], prev_answer_dict.get("ftp_ips"))
+                answers_dict["ftp_ips"] = ip_list
+
+                final_rule = ""
+                for ip in ip_list:
+                    final_rule +="-A INPUT -s " + ip + " -p tcp -m tcp --dport 20 -j ACCEPT\n"
+                    final_rule +="-A INPUT -s " + ip + " -p tcp -m tcp --dport 21 -j ACCEPT\n"
+
+                # adding the final rule to the questions
+                question_dict["ftp_ips"][2] = final_rule[:-1]
+
+
         
+        #block all ip's desired
+        ip_list = get_ip_list(question_dict["blocked_ips"][1], prev_answer_dict.get("blocked_ips"))
+        answers_dict["blocked_ips"] = ip_list
 
+        final_rule = ""
+        for ip in ip_list:
+            final_rule +="-A INPUT -s " + ip + " -j DROP\n"
 
+        # adding the final rule to the questions
+        question_dict["blocked_ips"][2] = final_rule[:-1]
 
     # inexperience questions
     else :
