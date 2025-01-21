@@ -248,7 +248,7 @@ question_dict = {
     "http_exp": [3, "HTTP", "-A INPUT -p tcp -m tcp --dport 80 -j ACCEPT"],
     "https_exp": [4, "HTTPS", "-A INPUT -p tcp -m tcp --dport 443 -j ACCEPT"],
     "ftp_ips": [5, "Which Ip's is your FTP server going to communicate with?", ""],
-    "blocked_ips": [6, "Which Ip's do you which to block all incoming traffic from?\nIf none enter nothing", ""]
+    "blocked_ips": [6, "Which Ip's do you wish to block all incoming traffic from?\nIf none enter nothing", ""]
 }
 
 
