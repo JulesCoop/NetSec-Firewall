@@ -112,7 +112,7 @@ def get_ip_list(question, last_value):
             if (resp.lower() == "cancel" or resp.lower() == "c"):
                 return None
             
-            print("The Ip address isn't valid or isn't in the right format")
+            print("The Ip address isn't valid or isn't in the right format. Please enter it again.")
 
         resp = input("")
 
@@ -286,7 +286,11 @@ def main(args):
     if args.action == "load":
         prev_answer_dict = read_json_to_file(args.file)
 
-
+    # Welcome text
+    print("****** Welcome to FireWALL-E ******")
+    print("Unless instructed otherwise, answer the questions with 'yes'/'y', or 'no'/'n'")
+    print("You can also cancel with 'cancel' or 'c'")
+    print("---------------\n")
 
     # create new rules / modify the previous
     experience_response = get_answer_yes_no(question_dict["experienced"][0], prev_answer_dict.get("experienced"))
@@ -373,6 +377,10 @@ def main(args):
     write_json_to_file(json_output_file, answers_dict)
     
     write_to_file(output_file ,to_string_format(question_dict, answers_dict))
+
+    print("-----------------")
+    print("The rules have been created and stored in",output_file)
+    print("Run 'sudo iptables-restore",output_file,"'to apply them.")
 
 
 if __name__ == "__main__":
