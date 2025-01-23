@@ -23,7 +23,7 @@ After all questions are done, the rules will be saved in a .txt file, and a corr
 
 To apply the firewall, the .txt file needs to be moved to the device on which they need to apply, and then activated with :
 ```
-sudo iptables-save FILE
+sudo iptables-restore FILE
 ```
 
 To make the rules persistent you should then also run :
