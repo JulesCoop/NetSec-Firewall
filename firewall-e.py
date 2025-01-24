@@ -97,6 +97,7 @@ def get_ip_list(question, last_value):
     """
 
     print(question)
+    print("Press \"Enter\" again once you are done specifying the IP addresses")
     if (last_value != None and last_value !=[]):
         print("Previous answer: " + str(last_value))
     resp = input("")
@@ -105,9 +106,23 @@ def get_ip_list(question, last_value):
     while(resp != ""):
 
         try:
-            # Try to create an IP address object
-            ipaddress.ip_address(resp)
-            iplist.append(resp)
+            # a mask was specified
+            if "/" in resp:
+                addr,mask = resp.split("/")
+                # Try to create an IP address object
+                ipaddress.ip_address(addr)
+
+                # check if the mask is a valid number between 0 and 32
+                if mask.isnumeric() == False or int(mask) < 0 or int(mask) > 32:
+                    print("the mask must be a number between 0 and 32")
+                    continue
+
+                iplist.append(addr + "/" + mask)
+
+            else:
+                # Try to create an IP address object
+                ipaddress.ip_address(resp)
+                iplist.append(resp)
         except:
             if (resp.lower() == "cancel" or resp.lower() == "c"):
                 return None
@@ -174,17 +189,9 @@ def read_json_to_file(filename):
 P_INDEX = 0
 R_INDEX = 2
 
-#some questions do not have rules for them
-def validId(id):
-    """To check if a question with a specific id has a 
-    corresponding rule or not.
 
-    Args:
-        id (str): id of the question
-    """
-    if id not in ["experienced", "server_exp"]:
-        return True
-    return False
+def sort_priority(k) :
+    return question_dict[k][0]
 
 
 def to_string_format(questions_dict, answers_dict):
@@ -205,17 +212,11 @@ def to_string_format(questions_dict, answers_dict):
     #rule that always goes first:
     final_string += "-A INPUT -i lo -j ACCEPT\n"
 
-    #go through the answers and SORT THEM in a priority queue
-    pq = [] #new list to heapify
-    for id in answers_dict.keys():
-        if validId(id) and answers_dict[id]: #if the answer is yes
-            #add PRIORITY and RULE to pq (as a tuple)
-            heapq.heappush(pq, (questions_dict[id][P_INDEX], questions_dict[id][R_INDEX]))
-    
-    #go through the sorted list to add the rules in the right order
-    for i in range(len(pq)):
-        final_string += heapq.heappop(pq)[1]
-        final_string += "\n"    
+    # rules added by priority
+    for rule_id in sorted(answers_dict.keys(), key=sort_priority, reverse=True):
+        if (len (questions_dict[rule_id] ) != 3) :
+            continue
+        final_string += questions_dict[rule_id][2] + "\n"
     
 
     #rule that always goes last:
@@ -232,7 +233,7 @@ def to_string_format(questions_dict, answers_dict):
 
 
 question_dict = {
-    "experienced": ["Are you comfortable with network terminology ?"],
+    "experienced": [-1, "Are you comfortable with network terminology ?"],
     
     # no experience questions
     "public_no_exp": [1, "Are you on a public network?", "-A OUTPUT -p tcp -m tcp --dport 80 -j DROP "],
@@ -242,13 +243,13 @@ question_dict = {
 
     # experience questions
     "services_exp": [0, "Will the device host services?", "-A INPUT -p icmp -m icmp --icmp-type 8 -m limit --limit 1/sec --limit-burst 10 -j ACCEPT\n-A INPUT -p icmp -m icmp --icmp-type 8 -j DROP\n-A INPUT -p icmp -j ACCEPT"],
-    "server_exp": ["Which services will it host ?\n Answer each number seperated by a space character if multiple services are hosted\nEnter for nothing\n1. SSH\n2. FTP\n3. HTTP\n4. HTTPs", "ssh_exp", "ftp_exp", "http_exp", "https_exp"],
+    "server_exp": [-1, "Which services will it host ?\n Answer each number seperated by a space character if multiple services are hosted\nEnter for nothing\n1. SSH\n2. FTP\n3. HTTP\n4. HTTPs", "ssh_exp", "ftp_exp", "http_exp", "https_exp"],
     "ssh_exp": [1, "SSH", "-A INPUT -p tcp -m tcp --dport 22 -m conntrack --ctstate NEW -j ACCEPT "],
     "ftp_exp":[2, "FTP", ""],
     "http_exp": [3, "HTTP", "-A INPUT -p tcp -m tcp --dport 80 -j ACCEPT"],
     "https_exp": [4, "HTTPS", "-A INPUT -p tcp -m tcp --dport 443 -j ACCEPT"],
-    "ftp_ips": [5, "Which Ip's is your FTP server going to communicate with?", ""],
-    "blocked_ips": [6, "Which Ip's do you wish to block all incoming traffic from?\nIf none enter nothing", ""]
+    "ftp_ips": [5, "Which IP addresses is your FTP server going to communicate with?", ""],
+    "blocked_ips": [6, "Which IP addresses do you wish to block all incoming traffic from?\nIf none enter nothing", ""]
 }
 
 
@@ -293,7 +294,7 @@ def main(args):
     print("---------------\n")
 
     # create new rules / modify the previous
-    experience_response = get_answer_yes_no(question_dict["experienced"][0], prev_answer_dict.get("experienced"))
+    experience_response = get_answer_yes_no(question_dict["experienced"][1], prev_answer_dict.get("experienced"))
     answers_dict["experienced"] = experience_response
 
     # experience questions
@@ -315,13 +316,13 @@ def main(args):
                     # appends the name of the "rule" to the list (SSH, FTP, HTTP or HTTPS)
                     prev_answer_multiple_choice.append(question_dict[k][1])
             
-            resp_answer_multiple_choice = get_answer_multiple_number(question_dict["server_exp"][0], prev_answer_multiple_choice, [0, 1, 2, 3, 4])
+            resp_answer_multiple_choice = get_answer_multiple_number(question_dict["server_exp"][1], prev_answer_multiple_choice, [0, 1, 2, 3, 4])
             if (resp_answer_multiple_choice == None):
                 exit(0)
 
             for num in resp_answer_multiple_choice:
                 if num != 0:
-                    answers_dict[question_dict["server_exp"][num]] = True
+                    answers_dict[question_dict["server_exp"][1 + num]] = True
 
             # ask which ip the server is going to communicate with
             if answers_dict.get("ftp_exp") != None:
